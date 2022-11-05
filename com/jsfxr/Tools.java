@@ -2,6 +2,9 @@ package com.jsfxr;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 public class Tools {
     public static BufferedImage image = new BufferedImage(640, 480, BufferedImage.TYPE_INT_ARGB);
@@ -14,7 +17,7 @@ public class Tools {
     }
     public static Spriteset loadTGA(String filename) {
         try {
-            ByteArray file = new ByteArray(Tools.class.getResourceAsStream(filename).readAllBytes());
+            ByteArray file = new ByteArray(readAllBytes(Tools.class.getResourceAsStream(filename)));
             int id_length = 0;
             Spriteset spriteset = new Spriteset();
             id_length = file.readUnsignedByte();
@@ -74,5 +77,16 @@ public class Tools {
     }
     public static boolean mouseInBox(int x, int y, int width, int height) {
         return Main.mouse_x >= x && Main.mouse_x < x + width && Main.mouse_y >= y && Main.mouse_y < y + height;
+    }
+    public static byte[] readAllBytes(InputStream in) throws IOException {
+        byte[] buffer = new byte[1024];
+        int bytesRead = 0;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        while ((bytesRead = in.read(buffer)) > 1) {
+            out.write(buffer, 0, bytesRead);
+        }
+        out.close();
+        in.close();
+        return out.toByteArray();
     }
 }

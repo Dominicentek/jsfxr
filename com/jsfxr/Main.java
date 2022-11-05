@@ -5,10 +5,6 @@ import java.awt.*;
 import java.awt.event.*;
 
 public class Main {
-    public static final int DIK_SPACE = KeyEvent.VK_SPACE;
-    public static final int DIK_RETURN = KeyEvent.VK_ENTER;
-    public static final int DIK_Z = KeyEvent.VK_Z;
-    public static final int DDK_WINDOW = 0;
     public static int mouse_x;
     public static int mouse_y;
     public static int mouse_px;

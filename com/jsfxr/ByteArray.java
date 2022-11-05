@@ -55,7 +55,7 @@ public class ByteArray {
     }
     public ByteArray read() {
         try {
-            data = new FileInputStream(file).readAllBytes();
+            data = Tools.readAllBytes(new FileInputStream(file));
         }
         catch (Exception e) {
             e.printStackTrace();
