@@ -353,6 +353,10 @@ public class Application {
                     case 3:
                         sample = noise_buffer[phase * 32 / period];
                         break;
+                    case 4:
+                        if (fp <= 0.5) sample = -1 + fp * 4;
+                        else sample = 3 - fp * 4;
+                        break;
                 }
                 float pp = fltp;
                 fltw *= fltw_d;
@@ -441,19 +445,18 @@ public class Application {
         array.writeInt(file_sampleswritten * wav_bits / 8);
         array.pointer(eof);
     }
-    public static boolean slider(int x, int y, FieldValue value, boolean bipolar, String text) {
+    public static boolean slider(int x, int y, FieldValue value, Object defaultValue, boolean bipolar, String text) {
         boolean result = false;
         if (Tools.mouseInBox(x, y, 100, 10)) {
             if (Main.mouse_rightclick) {
-                value.set(0f);
-                result = true;
+                value.set(defaultValue);
             }
             if (Main.mouse_leftclick) {
                 vselected = value;
             }
         }
         if (vselected != null) {
-            float val = (Main.mouse_x - x) / 100f;
+            float val = bipolar ? (Main.mouse_x - x) / 50f - 1f : (Main.mouse_x - x) / 100f;
             if (!value.getFieldName().equals(vselected.getFieldName())) val = value.<Float>get();
             if (bipolar) {
                 value.set(val);
@@ -466,8 +469,14 @@ public class Application {
             if (value.<Float>get() > 1.0f) value.set(1.0f);
         }
         Tools.drawBar(x - 1, y, 102, 10, 0x000000);
+        float minVal = 0;
         int ival = (int)(value.<Float>get() * 99);
-        if (bipolar) ival = (int)(value.<Float>get() * 49.5f + 49.5f);
+        if (bipolar) {
+            minVal = -1;
+            ival = (int)(value.<Float>get() * 49.5f + 49.5f);
+        }
+        if (value.<Float>get() < minVal) value.set(minVal);
+        if (value.<Float>get() > 1) value.set(1);
         Tools.drawBar(x, y + 1, ival, 8, 0xF0C090);
         Tools.drawBar(x + ival, y + 1, 100 - ival, 8, 0x807060);
         Tools.drawBar(x + ival, y + 1, 1, 8, 0xFFFFFF);
@@ -678,20 +687,24 @@ public class Application {
         Tools.drawText(font, 120, 10, 0x504030, "MANUAL SETTINGS");
         Tools.drawSprite(ld48, 8, 440, 0, 0xB0A080);
         boolean do_play = false;
-        if (button(130, 30, wave_type == 0, "SQUAREWAVE", 10)) {
+        if (buttonWH(130, 30, 78, 19, wave_type == 0, "SQUARE", 10)) {
             wave_type = 0;
             do_play = true;
         }
-        if (button(250, 30, wave_type == 1, "SAWTOOTH", 11)) {
+        if (buttonWH(226, 30, 78, 19, wave_type == 1, "SAWTOOTH", 11)) {
             wave_type = 1;
             do_play = true;
         }
-        if (button(370, 30, wave_type == 2, "SINEWAVE", 12)) {
+        if (buttonWH(322, 30, 78, 19, wave_type == 2, "SINE", 12)) {
             wave_type = 2;
             do_play = true;
         }
-        if (button(490, 30, wave_type == 3, "NOISE", 13)) {
+        if (buttonWH(418, 30, 78, 19, wave_type == 3, "NOISE", 13)) {
             wave_type = 3;
+            do_play = true;
+        }
+        if (buttonWH(514, 30, 78, 19, wave_type == 4, "TRIANGLE", 13)) {
+            wave_type = 4;
             do_play = true;
         }
         Tools.drawBar(5 - 1 - 1, 412 - 1 - 1, 102 + 2, 19 + 2, 0x000000);
@@ -727,6 +740,7 @@ public class Application {
             p_repeat_speed = frnd(2.0f) - 1.0f;
             p_arp_speed = frnd(2.0f) - 1.0f;
             p_arp_mod = frnd(2.0f) - 1.0f;
+            wave_type = rnd(4);
             do_play=true;
         }
         if (button(5, 382, false, "MUTATE", 30)) {
@@ -754,11 +768,15 @@ public class Application {
             if (rnd(1) == 0) p_arp_mod += frnd(0.1f) - 0.05f;
             do_play=true;
         }
+        if (button(5, 382 - 412 + 382, false, "DEFAULT", 50)) {
+            resetParams();
+            do_play=true;
+        }
         Tools.drawText(font, 515, 170, 0x000000, "VOLUME");
         Tools.drawBar(490 - 1 - 1 + 60, 180 - 1 + 5, 70, 2, 0x000000);
         Tools.drawBar(490 - 1 - 1 + 60 + 68, 180 - 1 + 5, 2, 205, 0x000000);
         Tools.drawBar(490 - 1 - 1 + 60, 180 - 1, 42 + 2, 10 + 2, 0xFF0000);
-        if (slider(490, 180, new FieldValue(Application.class, "sound_vol"), false, " ")) playSample();
+        if (slider(490, 180, new FieldValue(Application.class, "sound_vol"), 0.5f, false, " ")) playSample();
         if (button(490, 200, false, "PLAY SOUND", 20)) playSample();
         if (button(490, 290, false, "LOAD SOUND", 14)) {
             FileDialog dialog = new FileDialog(Main.window);
@@ -799,34 +817,34 @@ public class Application {
         int xpos = 350;
         int ypos = 4;
         Tools.drawBar(xpos - 190, ypos * 18 - 5, 300, 2, 0x000000);
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_env_attack"), false, "ATTACK TIME")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_env_sustain"), false, "SUSTAIN TIME")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_env_punch"), false, "SUSTAIN PUNCH")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_env_decay"), false, "DECAY TIME")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_env_attack"), 0.0f, false, "ATTACK TIME")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_env_sustain"), 0.3f, false, "SUSTAIN TIME")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_env_punch"), 0.0f, false, "SUSTAIN PUNCH")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_env_decay"), 0.4f, false, "DECAY TIME")) do_play = true;
         Tools.drawBar(xpos - 190, ypos * 18 - 5, 300, 2, 0x000000);
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_base_freq"), false, "START FREQUENCY")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_freq_limit"), false, "MIN FREQUENCY")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_freq_ramp"), true, "SLIDE")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_freq_dramp"), true, "DELTA SLIDE")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_vib_strength"), false, "VIBRATO DEPTH")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_vib_speed"), false, "VIBRATO SPEED")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_base_freq"), 0.3f, false, "START FREQUENCY")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_freq_limit"), 0.0f, false, "MIN FREQUENCY")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_freq_ramp"), 0.0f, true, "SLIDE")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_freq_dramp"), 0.0f, true, "DELTA SLIDE")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_vib_strength"), 0.0f, false, "VIBRATO DEPTH")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_vib_speed"), 0.0f, false, "VIBRATO SPEED")) do_play = true;
         Tools.drawBar(xpos - 190, ypos * 18 - 5, 300, 2, 0x000000);
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_arp_mod"), true, "CHARGE AMOUNT")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_arp_speed"), false, "CHARGE SPEED")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_arp_mod"), 0.0f, true, "CHARGE AMOUNT")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_arp_speed"), 0.0f, false, "CHARGE SPEED")) do_play = true;
         Tools.drawBar(xpos - 190, ypos * 18 - 5, 300, 2, 0x000000);
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_duty"), false, "SQUARE DUTY")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_duty_ramp"), true, "DUTY SWEEP")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_duty"), 0.0f, false, "SQUARE DUTY")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_duty_ramp"), 0.0f, true, "DUTY SWEEP")) do_play = true;
         Tools.drawBar(xpos - 190, ypos * 18 - 5, 300, 2, 0x000000);
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_repeat_speed"), false, "REPEAT SPEED")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_repeat_speed"), 0.0f, false, "REPEAT SPEED")) do_play = true;
         Tools.drawBar(xpos - 190, ypos * 18 - 5, 300, 2, 0x000000);
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_pha_offset"), true, "PHASER OFFSET")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_pha_ramp"), true, "PHASER SWEEP")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_pha_offset"), 0.0f, true, "PHASER OFFSET")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_pha_ramp"), 0.0f, true, "PHASER SWEEP")) do_play = true;
         Tools.drawBar(xpos - 190, ypos * 18 - 5, 300, 2, 0x000000);
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_lpf_freq"), false, "LP FILTER CUTOFF")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_lpf_ramp"), true, "LP FILTER CUTOFF SWEEP")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_lpf_resonance"), false, "LP FILTER RESONANCE")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_hpf_freq"), false, "HP FILTER CUTOFF")) do_play = true;
-        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_hpf_ramp"), true, "HP FILTER CUTOFF SWEEP")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_lpf_freq"), 1.0f, false, "LP FILTER CUTOFF")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_lpf_ramp"), 0.0f, true, "LP FILTER CUTOFF SWEEP")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_lpf_resonance"), 0.0f, false, "LP FILTER RESONANCE")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_hpf_freq"), 0.0f, false, "HP FILTER CUTOFF")) do_play = true;
+        if (slider(xpos, (ypos++) * 18, new FieldValue(Application.class, "p_hpf_ramp"), 0.0f, true, "HP FILTER CUTOFF SWEEP")) do_play = true;
         Tools.drawBar(xpos - 190, ypos * 18 - 5, 300, 2, 0x000000);
         Tools.drawBar(xpos - 190, 4 * 18 - 5, 1, (ypos - 4) * 18, 0x000000);
         Tools.drawBar(xpos - 190 + 299, 4 * 18 - 5, 1, (ypos - 4) * 18, 0x000000);
